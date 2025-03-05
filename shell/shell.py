@@ -1,22 +1,26 @@
 import os
 import sys
 
+#Get User input and handle errors
 def get_input():
     try:
-        return input().strip()
-    except EOFError:
+        return input().strip() #Read user input and take out any whitespace
+    except EOFError: #If input is closed exit chell
         sys.exit(0)
 
+#Keep the shell running and recieving input
 while True:
+    #Default shell symbol of $ 
     ps1 = os.getenv("PS1", "$ ")
     if sys.stdin.isatty():  # Show prompt only in interactive mode
         print(ps1, end="", flush=True)
 
+    #Read user command
     command = get_input()
     if not command:
         continue  # Ignore empty input
 
-    cmds = command.split()  # Split command into a list
+    cmds = command.split()  # Split command into a list of words
 
     # Built-in command: exit
     if cmds[0] == "exit":
@@ -25,13 +29,17 @@ while True:
     # Built-in command: cd
     if cmds[0] == "cd":
         try:
+            #Change to specific directory if none given go home
             target_dir = cmds[1] if len(cmds) > 1 else os.getenv("HOME")
+            #Go to directory
             os.chdir(target_dir)
+        #If we dont find the file 
         except FileNotFoundError:
+            #Contiune the loop
             print(f"cd: no such file or directory: {target_dir}")
         continue  
 
-    # Check for background task (`&`)
+    # Check for background task aka ends with(`&`)
     run_in_background = False
     if cmds[-1] == "&":
         run_in_background = True
@@ -46,11 +54,14 @@ while True:
         pipes = [os.pipe() for _ in range(num_pipes)]  # Create all pipes
 
         for i in range(len(cmds)):  # Loop through all commands in the pipeline
-            pid = os.fork()
+            pid = os.fork() #Makes a child process
 
+            #Working with the child process
             if pid == 0:  # Child process
-                if i > 0:  # Not the first command
+                if i > 0:  # Not the first command, read the previous pipe
                     os.dup2(pipes[i - 1][0], 0)  # Read from previous pipe
+                
+                #If were not in last command write out the next pipe
                 if i < num_pipes:  # Not the last command
                     os.dup2(pipes[i][1], 1)  # Write to next pipe
 
@@ -59,7 +70,7 @@ while True:
                     os.close(r)
                     os.close(w)
 
-                # Execute command
+                # Execute command by looking for it in system paths
                 for path in os.getenv("PATH").split(":"):
                     full_path = os.path.join(path, cmds[i][0])
                     if os.path.exists(full_path):
@@ -73,6 +84,7 @@ while True:
             os.close(r)
             os.close(w)
 
+        #Wait for the children to finish execution
         for _ in range(len(cmds)):
             os.wait()
 
